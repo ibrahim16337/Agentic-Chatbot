@@ -1,6 +1,10 @@
 from langgraph.graph import StateGraph, START, END
+from langgraph.prebuilt import ToolNode, tools_condition
 from src.Langgraph_Agentic_AI.state.state import State
 from src.Langgraph_Agentic_AI.nodes.basic_chatbot_node import Basic_Chatbot_Node
+from src.Langgraph_Agentic_AI.tools.search_tool import get_tools, create_tool_node
+from src.Langgraph_Agentic_AI.nodes.chabot_with_tool_node import Chatbot_with_Tool_Node
+
 
 class Graph_Builder:
     def __init__(self, model):
@@ -20,6 +24,35 @@ class Graph_Builder:
         self.graph_builder.add_node("chatbot", self.basic_chatbot_node.process)
         self.graph_builder.add_edge(START, "chatbot")
         self.graph_builder.add_edge("chatbot", END)
+        
+    def chatbot_with_tools_graph_builder(self):
+        """
+        Builds an advanced chatbot graph with tool integration.
+        This method creates a chatbot graph that includes both a chatbot node
+        and a tool node. It defines tools, initializes the chatbot with tool
+        capabilities, and sets up conditional and direct edges between nodes.
+        The chatbot node is set as the entry point.
+        """
+        ## Define the tool and tool node
+        tools = get_tools()
+        tool_node = create_tool_node(tools)
+        
+        ## Define the LLM
+        llm = self.llm
+        
+        ## Define the chatbot node
+        obj_chatbot_with_tool = Chatbot_with_Tool_Node(llm)
+        chatbot_node = obj_chatbot_with_tool.create_chatbot(tools)
+        
+        ## Add Node
+        self.graph_builder.add_node("chatbot", chatbot_node)
+        self.graph_builder.add_node("tools", tool_node)
+        
+        ## Define conditional and direct edges
+        self.graph_builder.add_edge(START, "chatbot")
+        self.graph_builder.add_conditional_edges("chatbot", tools_condition)
+        self.graph_builder.add_edge("tools", "chatbot")
+        self.graph_builder.add_edge("chatbot", END)
     
     def setup_graph(self, usecase: str):
         """
@@ -27,5 +60,8 @@ class Graph_Builder:
         """
         if usecase == "Basic Chatbot":
             self.basic_chatbot_graph_builder()
+        if usecase == "Chatbot with Web Search":
+            self.chatbot_with_tools_graph_builder()   
+            
             
         return self.graph_builder.compile()
